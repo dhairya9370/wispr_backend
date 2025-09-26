@@ -22,8 +22,8 @@ const onlineUsers = new Map();
 
 
 app.use(cors({
-    origin: "http://localhost:5173",  // your frontend
-    credentials: true                // must match
+    origin: process.env.CLIENT_URL,
+    credentials: true                
 }));
 app.use(bodyParser.json());
 async function main() {
@@ -300,9 +300,8 @@ app.use(session({
     store,
     secret: process.env.SECRET,
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie: {
-        expiry: Date.now() + 1000 * 60 * 60 * 3, //3hrs
         maxAge: 1000 * 60 * 60 * 3,
         httpOnly: true,
         secure:true,
@@ -352,7 +351,6 @@ app.post("/upload", isLoggedIn, upload.single("file"), async (req, res) => {
         return res.status(500).json({ message: "Failed to upload", error: err.message });
     }
 });
-
 
 app.post("/login", (req, res, next) => {
     passport.authenticate("local", (err, user, info) => {
