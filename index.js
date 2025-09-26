@@ -304,7 +304,9 @@ app.use(session({
     cookie: {
         expiry: Date.now() + 1000 * 60 * 60 * 3, //3hrs
         maxAge: 1000 * 60 * 60 * 3,
-        httpOnly: true
+        httpOnly: true,
+        secure:true,
+        sameSite:"none",
     }
 }));
 const multer = require('multer');
