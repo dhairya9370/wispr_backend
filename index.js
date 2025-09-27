@@ -33,7 +33,8 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     exposedHeaders: ["Authorization"] ,
     preflightContinue: false,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
+    maxAge: 600
 }));
 app.options("*", cors());
 
@@ -49,7 +50,8 @@ const store = MongoStore.create({
 });
 store.on("error", () => {
     console.log("ERROR IN MONGO SESSION STORE");
-})
+});
+app.set('trust proxy', 1);
 app.use(session({
     store,
     secret: process.env.SECRET,
