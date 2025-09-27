@@ -61,7 +61,7 @@ app.use(session({
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // Adjust based on environment
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        domain:'.onrender.com',
+        // domain:'.onrender.com',
     }
 }));
 const multer = require('multer');
@@ -74,6 +74,16 @@ passport.use(new LocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
+
+app.get("/api/session-info", (req, res) => {
+    res.json({
+        authenticated: req.isAuthenticated(),
+        user: req.user,
+        sessionId: req.sessionID,
+        cookies: req.headers.cookie,
+        headers: req.headers
+    });
+});
 app.get("/", (req, res) => {
     res.send("Wispr 2.0 BACKEND SERVER ON RENDER Frontend: https://wispr-frontend-tau.vercel.app");
 });
@@ -387,7 +397,7 @@ app.post("/upload", isLoggedIn, upload.single("file"), async (req, res) => {
 //     })(req, res, next);
 // });
 app.post("/login", (req, res, next) => {
-    console.log("Login attempt:", req.body);
+    // console.log("Login attempt:", req.body);
     passport.authenticate("local", (err, user, info) => {
         if (err) {
             console.error("Authentication error:", err);
