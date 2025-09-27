@@ -19,12 +19,23 @@ const bodyParser = require("body-parser");
 const { ObjectId } = mongoose.Types;
 const cloudinary = require("cloudinary").v2;
 const onlineUsers = new Map();
+const helmet = require("helmet");
 
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false 
+}));
 
 app.use(cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true                
+  origin: process.env.CLIENT_URL,
+  credentials: true,            
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Authorization"] // Add if you need to expose custom headers
 }));
+
+app.options("*", cors());
+
 app.use(bodyParser.json());
 async function main() {
   try {
@@ -53,7 +64,7 @@ process.on("unhandledRejection", (reason) => {
 
 const io = new Server(server, {
     cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
+        origin: process.env.CLIENT_URL,
         methods: ["GET", "POST"]
     }
 });
@@ -301,11 +312,12 @@ app.use(session({
     secret: process.env.SECRET,
     resave: false,
     saveUninitialized: false,
+    name: 'newSession',
     cookie: {
         maxAge: 1000 * 60 * 60 * 3,
         httpOnly: true,
-        secure:true,
-        sameSite:"lax",
+        secure: process.env.NODE_ENV === 'production', // Adjust based on environment
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     }
 }));
 const multer = require('multer');
@@ -712,7 +724,7 @@ app.post("/:id/status", (req, res) => {
 
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Wispr on port ${PORT}`);
 });
