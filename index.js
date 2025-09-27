@@ -33,7 +33,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   exposedHeaders: ["Authorization"] // Add if you need to expose custom headers
 }));
-
 app.options("*", cors());
 
 app.use(bodyParser.json());
@@ -714,15 +713,10 @@ app.post("/api/get-user",async(req,res)=>{
         res.status(400).json({ message: "Error in Fetching User" })
     }
 });
-app.get("/:id/status", (req, res) => {
-
+app.get("/", (req, res) => {
+    res.send("Wispr 2.0 BACKEND SERVER ON RENDER Frontend: https://wispr-frontend-tau.vercel.app");
 });
-app.get("/:id/status/:statusId", (req, res) => {
 
-})
-app.post("/:id/status", (req, res) => {
-
-});
 
 const PORT = process.env.PORT;
 server.listen(PORT, '0.0.0.0', () => {
