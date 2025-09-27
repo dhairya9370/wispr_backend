@@ -31,7 +31,9 @@ app.use(cors({
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    exposedHeaders: ["Authorization"] // Add if you need to expose custom headers
+    exposedHeaders: ["Authorization"] ,
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 }));
 app.options("*", cors());
 
@@ -51,14 +53,15 @@ store.on("error", () => {
 app.use(session({
     store,
     secret: process.env.SECRET,
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     name: 'newSession',
     cookie: {
         maxAge: 1000 * 60 * 60 * 3,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // Adjust based on environment
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        domain:'.onrender.com',
     }
 }));
 const multer = require('multer');
