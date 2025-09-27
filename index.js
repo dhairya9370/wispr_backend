@@ -373,16 +373,62 @@ app.post("/upload", isLoggedIn, upload.single("file"), async (req, res) => {
     }
 });
 
-app.post("/login", (req, res, next) => {
-    console.log("Login attempt :",req.body);
-    passport.authenticate("local", (err, user, info) => {
-        if (err) return next(err);
-        // console.log(user, info);
-        if (!user) return res.status(401).json({ message: "Invalid credentials" });
+// app.post("/login", (req, res, next) => {
+//     console.log("Login attempt :",req.body);
+//     passport.authenticate("local", (err, user, info) => {
+//         if (err) return next(err);
+//         // console.log(user, info);
+//         if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-        req.logIn(user, (err) => {
-            if (err) return next(err);
-            return res.json({ message: "Login successful", user });
+//         req.logIn(user, (err) => {
+//             if (err) return next(err);
+//             return res.json({ message: "Login successful", user });
+//         });
+//     })(req, res, next);
+// });
+app.post("/login", (req, res, next) => {
+    console.log("Login attempt:", req.body);
+    passport.authenticate("local", (err, user, info) => {
+        if (err) {
+            console.error("Authentication error:", err);
+            return res.status(500).json({ 
+                success: false, 
+                message: "Authentication error" 
+            });
+        }
+        
+        if (!user) {
+            console.log("Authentication failed:", info);
+            return res.status(401).json({ 
+                success: false, 
+                message: info?.message || "Invalid credentials" 
+            });
+        }
+
+        req.login(user, (loginErr) => {
+            if (loginErr) {
+                console.error("Login error:", loginErr);
+                return res.status(500).json({ 
+                    success: false, 
+                    message: "Login failed" 
+                });
+            }
+            
+            console.log("Login successful for user:", user.username);
+            
+            // Return user data without sensitive information
+            const userResponse = {
+                _id: user._id,
+                username: user.username,
+                email: user.email
+                // Add other non-sensitive fields you need
+            };
+            
+            res.json({ 
+                success: true, 
+                message: "Login successful",
+                user: userResponse
+            });
         });
     })(req, res, next);
 });
