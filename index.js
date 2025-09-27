@@ -22,44 +22,58 @@ const onlineUsers = new Map();
 const helmet = require("helmet");
 
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false 
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false
 }));
 
 app.use(cors({
-  origin: process.env.CLIENT_URL,
-  credentials: true,            
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  exposedHeaders: ["Authorization"] // Add if you need to expose custom headers
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    exposedHeaders: ["Authorization"] // Add if you need to expose custom headers
 }));
 app.options("*", cors());
 
 app.use(bodyParser.json());
-async function main() {
-  try {
-    await mongoose.connect(atlas_url);
-    console.log("✅ MongoDB connection Established");
-  } catch (err) {
-    console.error("❌ MongoDB connection error:", err.message);
-    console.log("🔄 Retrying in 10s...");
-    setTimeout(main, 10000);
-  }
-}
-mongoose.connection.on("disconnected", () => {
-  console.log("⚠️ MongoDB disconnected!");
+
+
+const store = MongoStore.create({
+    mongoUrl: atlas_url,
+    crypto: {
+        secret: process.env.SECRET
+    },
+    touchAfter: 3 * 3600,
 });
-mongoose.connection.on("error",(err)=>{
-    console.log(err);
+store.on("error", () => {
+    console.log("ERROR IN MONGO SESSION STORE");
 })
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err.message);
-});
+app.use(session({
+    store,
+    secret: process.env.SECRET,
+    resave: false,
+    saveUninitialized: false,
+    name: 'newSession',
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 3,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // Adjust based on environment
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    }
+}));
+const multer = require('multer');
+const { storage } = require("./utils/cloudConfig.js");
+const upload = multer({ storage });
 
-process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled Rejection:", reason?.message);
-});
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
+app.get("/", (req, res) => {
+    res.send("Wispr 2.0 BACKEND SERVER ON RENDER Frontend: https://wispr-frontend-tau.vercel.app");
+});
 
 const io = new Server(server, {
     cors: {
@@ -79,7 +93,29 @@ async function isParticipantOf(participantId, chatId) {
     return false;
 }
 
+async function main() {
+    try {
+        await mongoose.connect(atlas_url);
+        console.log("✅ MongoDB connection Established");
+    } catch (err) {
+        console.error("❌ MongoDB connection error:", err.message);
+        console.log("🔄 Retrying in 10s...");
+        setTimeout(main, 10000);
+    }
+}
+mongoose.connection.on("disconnected", () => {
+    console.log("⚠️ MongoDB disconnected!");
+});
+mongoose.connection.on("error", (err) => {
+    console.log(err);
+})
+process.on("uncaughtException", (err) => {
+    console.error("Uncaught Exception:", err.message);
+});
 
+process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled Rejection:", reason?.message);
+});
 main()
     .then(() => {
         io.on("connection", (socket) => {
@@ -99,7 +135,7 @@ main()
                 console.log("new Client connected:", socket.id, onlineUsers.get(socket.id));
             });
             socket.on("start-backup", async (userId) => {
-                
+
                 const allChats = await Chat.find({ participants: userId }).populate("messages");
                 if (allChats && allChats.length) {
                     socket.emit("backup-progress", 0);
@@ -236,7 +272,7 @@ main()
                                 }
                             }
                             if (seenByAll) {
-                                io.to(senderSocketId).emit("seen-messages", 
+                                io.to(senderSocketId).emit("seen-messages",
                                     { msgs: updatedMsgs, chatId: activeChat._id }
                                 );
                             }
@@ -245,12 +281,12 @@ main()
                 }
 
             });
-            socket.on("delete-message", async ({ senderId, msg, chatId,recipientIds }) => {
+            socket.on("delete-message", async ({ senderId, msg, chatId, recipientIds }) => {
                 console.log(recipientIds);
                 for (const recipientId of recipientIds) {
-                    const recipientSocketId= [...onlineUsers.entries()].find(([key, value]) => 
+                    const recipientSocketId = [...onlineUsers.entries()].find(([key, value]) =>
                         value.toString() === recipientId.toString())?.[0];
-                    console.log(recipientId,recipientSocketId);
+                    console.log(recipientId, recipientSocketId);
 
                     if (recipientSocketId) {
                         io.to(recipientSocketId).emit("message-deleted", { msg, chatId });
@@ -260,23 +296,23 @@ main()
             socket.on("pin-unpin-chat", () => {
                 socket.emit("chat-pinned-unpinned");
             });
-            socket.on("set-chat-overview-open",({chatId,onNewGroup})=>{
+            socket.on("set-chat-overview-open", ({ chatId, onNewGroup }) => {
                 // console.log("emmited open");
-                socket.emit("open-chat-overview",{chatId,onNewGroup});
+                socket.emit("open-chat-overview", { chatId, onNewGroup });
             });
-            socket.on("notify-new-group-created",({chat})=>{
-                const recipientIds=chat.participants.filter((p)=>p.toString()!==chat.group.createdBy.toString());
+            socket.on("notify-new-group-created", ({ chat }) => {
+                const recipientIds = chat.participants.filter((p) => p.toString() !== chat.group.createdBy.toString());
                 // console.log(recipientIds,chat.participants);
-                
+
                 for (const recipientId of recipientIds) {
-                    
-                    const recipientSocketId= [...onlineUsers.entries()].find(([key, value]) => 
+
+                    const recipientSocketId = [...onlineUsers.entries()].find(([key, value]) =>
                         value.toString() === recipientId.toString())?.[0];
 
                     // console.log(recipientId,recipientSocketId);
 
                     if (recipientSocketId) {
-                        io.to(recipientSocketId).emit("added-in-group", {chat});
+                        io.to(recipientSocketId).emit("added-in-group", { chat });
                     }
                 }
             });
@@ -294,40 +330,11 @@ main()
                 }
             });
         });
+        const PORT = process.env.PORT;
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log(`Wispr on port ${PORT}`);
+        });
     });
-
-const store = MongoStore.create({
-    mongoUrl: atlas_url,
-    crypto: {
-        secret: process.env.SECRET
-    },
-    touchAfter: 3 * 3600,
-});
-store.on("error", () => {
-    console.log("ERROR IN MONGO SESSION STORE");
-})
-app.use(session({
-    store,
-    secret: process.env.SECRET,
-    resave: false,
-    saveUninitialized: false,
-    name: 'newSession',
-    cookie: {
-        maxAge: 1000 * 60 * 60 * 3,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // Adjust based on environment
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    }
-}));
-const multer = require('multer');
-const { storage } = require("./utils/cloudConfig.js");
-const upload = multer({ storage });
-
-app.use(passport.initialize());
-app.use(passport.session());
-passport.use(new LocalStrategy(User.authenticate()));
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
 
 
 // app.use((req, res, next) => {
@@ -501,8 +508,8 @@ app.post("/api/user-status", isLoggedIn, async (req, res) => {
 });
 app.post("/api/online-participants", isLoggedIn, async (req, res) => {
     const { recipients } = req.body;
-    const result = await User.find({_id:{$in:recipients},"online.is":true}, { _id: 1 });    
-    const online=result.map((id)=>id._id);
+    const result = await User.find({ _id: { $in: recipients }, "online.is": true }, { _id: 1 });
+    const online = result.map((id) => id._id);
     res.json(result);
 });
 app.post("/api/create-new-chat", async (req, res) => {
@@ -696,30 +703,24 @@ app.post("/api/set-chat-unpinned", async (req, res) => {
     }
 });
 
-app.post('/api/get-all-users',async(req,res)=>{
-    try{
-        const userList=await User.find({});
+app.post('/api/get-all-users', async (req, res) => {
+    try {
+        const userList = await User.find({});
         res.status(200).json(userList);
-    }catch(err){
+    } catch (err) {
         res.status(400).json({ message: "Error in Fetching User List" })
     }
 });
-app.post("/api/get-user",async(req,res)=>{
-    try{
-        const {userId}=req.body;
-        const user=await User.findById(userId);
+app.post("/api/get-user", async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const user = await User.findById(userId);
         res.status(200).json(user);
-    }catch(err){
+    } catch (err) {
         res.status(400).json({ message: "Error in Fetching User" })
     }
 });
-app.get("/", (req, res) => {
-    res.send("Wispr 2.0 BACKEND SERVER ON RENDER Frontend: https://wispr-frontend-tau.vercel.app");
-});
 
 
-const PORT = process.env.PORT;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Wispr on port ${PORT}`);
-});
+
 
