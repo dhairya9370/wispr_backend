@@ -374,6 +374,7 @@ app.post("/upload", isLoggedIn, upload.single("file"), async (req, res) => {
 });
 
 app.post("/login", (req, res, next) => {
+    console.log("Login attempt :",req.body);
     passport.authenticate("local", (err, user, info) => {
         if (err) return next(err);
         // console.log(user, info);
