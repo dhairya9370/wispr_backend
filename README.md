@@ -4,6 +4,10 @@
 A complete **MERN Stack** Project  
 It supports one-to-one chats, groups, media sharing, and smooth user experience with error handling.  
 
+![Wispr 2.0](https://wispr-frontend-tau.vercel.app)
+![Wispr 2.0 -- Backend ](https://wispr-backend.onrender.com)
+
+
 ---
 
 ## 🚀 Features
