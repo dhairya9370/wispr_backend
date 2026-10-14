@@ -29,7 +29,10 @@ const userSchema = new mongoose.Schema({
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "Chat"
             }],
-            maxlength: [3, 'Cannot have more than 3 pinned chats'],
+            validate: [
+                (val) => !val || val.length <= 3,
+                'Cannot have more than 3 pinned chats'
+            ],
             default: []
         },
         background: {
